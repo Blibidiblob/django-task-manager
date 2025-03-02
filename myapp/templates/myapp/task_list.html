@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">📝 Task Manager</h1>
+
+        <div class="card shadow p-4">
+            <h3 class="mb-3">Add a New Task</h3>
+
+            <!-- ✅ AJAX-powered Add Task Form -->
+            <form id="addTaskForm" method="POST">
+                {% csrf_token %}
+                <div class="input-group mb-2">
+                    <input type="text" name="title" class="form-control" placeholder="Enter a new task..." required>
+                    <input type="date" name="due_date" class="form-control">
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Importance:</label>
+                    <select name="importance" class="form-select">
+                        <option value="high">🦄 Very Important</option>
+                        <option value="medium" selected>🍦 Normal</option>
+                        <option value="low">🦡 Not So Important</option>
+                    </select>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Tag:</label>
+                    <input type="text" name="tag" class="form-control" placeholder="Enter a tag (e.g., Work, Home)">
+                </div>
+
+                <div class="form-check mb-3">
+                    <input type="checkbox" name="annoying" class="form-check-input">
+                    <label class="form-check-label">💩 This task is annoying</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Add Task</button>
+            </form>
+
+            <!-- ✅ Task List: Not Done Tasks -->
+            <h4 class="mt-4">⏳ Not Done</h4>
+            <ul class="list-group">
+                {% for task in tasks_not_done %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>
+                            {{ task.title }}  
+                            {% if task.due_date %}
+                                <span class="badge bg-info text-dark">📅 Due: {{ task.due_date }}</span>
+                            {% endif %}
+                            {% if task.importance == "high" %}
+                                <span class="badge bg-danger">🦄 Very Important</span>
+                            {% elif task.importance == "medium" %}
+                                <span class="badge bg-warning">🍦 Normal</span>
+                            {% elif task.importance == "low" %}
+                                <span class="badge bg-secondary">🦡 Not So Important</span>
+                            {% endif %}
+                            {% if task.annoying %}
+                                <span class="badge bg-dark">💩 Annoying Task</span>
+                            {% endif %}
+                            {% if task.tag %}
+                                <span class="badge bg-primary">{{ task.tag }}</span>
+                            {% endif %}
+                        </span>
+                        <div>
+                            <button class="btn btn-sm btn-warning edit-btn"
+                                    data-task-id="{{ task.id }}"
+                                    data-task-title="{{ task.title }}"
+                                    data-task-date="{{ task.due_date|date:'Y-m-d'|default:'' }}"
+                                    data-task-importance="{{ task.importance|default:'medium' }}"
+                                    data-task-tag="{{ task.tag|default:'' }}"
+                                    data-task-annoying="{{ task.annoying|yesno:'True,False' }}"
+                                    data-task-completed="{{ task.completed|yesno:'True,False' }}">
+                                ✏️ Edit
+                            </button>
+                    
+                            <a href="{% url 'mark-done' task.id %}" class="btn btn-sm btn-success">✅</a>
+                            <a href="{% url 'delete-task' task.id %}" class="btn btn-sm btn-danger delete-task">🗑️</a>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item text-center">🎉 No pending tasks! 🎉</li>
+                {% endfor %}
+            </ul>
+            
+            <!-- ✅ Task List: Done Tasks -->
+            <h4 class="mt-4">✅ Done</h4>
+            <ul class="list-group">
+                {% for task in tasks_done %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>
+                            {{ task.title }}  
+                            {% if task.due_date %}
+                                <span class="badge bg-secondary">📅 Due: {{ task.due_date }}</span>
+                            {% endif %}
+                            {% if task.importance == "high" %}
+                                <span class="badge bg-danger">🦄 Very Important</span>
+                            {% elif task.importance == "medium" %}
+                                <span class="badge bg-warning">🍦 Normal</span>
+                            {% elif task.importance == "low" %}
+                                <span class="badge bg-secondary">🦡 Not So Important</span>
+                            {% endif %}
+                            {% if task.annoying %}
+                                <span class="badge bg-dark">💩 Annoying Task</span>
+                            {% endif %}
+                            {% if task.tag %}
+                                <span class="badge bg-primary">{{ task.tag }}</span>
+                            {% endif %}
+                        </span>
+                        <div>
+                            <button class="btn btn-sm btn-warning edit-btn"
+                                    data-task-id="{{ task.id }}"
+                                    data-task-title="{{ task.title }}"
+                                    data-task-date="{{ task.due_date|date:'Y-m-d'|default:'' }}"
+                                    data-task-importance="{{ task.importance|default:'medium' }}"
+                                    data-task-tag="{{ task.tag|default:'' }}"
+                                    data-task-annoying="{{ task.annoying|yesno:'True,False' }}"
+                                    data-task-completed="{{ task.completed|yesno:'True,False' }}">
+                                ✏️ Edit                    
+                            </button>
+                            <a href="{% url 'delete-task' task.id %}" class="btn btn-sm btn-danger delete-task">🗑️</a>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item text-center">No completed tasks yet! 🚀</li>
+                {% endfor %}
+            </ul>
+
+        </div>
+    </div>
+
+    <!-- ✅ Edit Task Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">Edit Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" id="editForm" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="task_id" id="editTaskId">
+
+                        <div class="mb-3">
+                            <label class="form-label">Task Title:</label>
+                            <input type="text" name="title" id="editTaskTitle" class="form-control" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Due Date:</label>
+                            <input type="date" name="due_date" id="editTaskDate" class="form-control">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Importance:</label>
+                            <select name="importance" id="editTaskImportance" class="form-select">
+                                <option value="high">🦄 Very Important</option>
+                                <option value="medium">🍦 Normal</option>
+                                <option value="low">🦡 Not So Important</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tag:</label>
+                            <input type="text" name="tag" id="editTaskTag" class="form-control">
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="annoying" id="editTaskAnnoying" class="form-check-input">
+                            <label class="form-check-label">💩 This task is annoying</label>
+                        </div>
+
+                        <!-- ✅ Edit Task Status: Done or Not Done -->
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="completed" id="editTaskCompleted" class="form-check-input">
+                            <label class="form-check-label">✅ Task is Done</label>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-success">Save Changes</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ JavaScript Fixes -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll(".edit-btn").forEach(button => {
+            button.addEventListener("click", function() {
+                // Get task data from button attributes
+                const taskId = this.getAttribute("data-task-id");
+                const taskTitle = this.getAttribute("data-task-title");
+                const taskDate = this.getAttribute("data-task-date") || "";
+                const taskImportance = this.getAttribute("data-task-importance") || "medium";
+                const taskTag = this.getAttribute("data-task-tag") || "";
+                const taskAnnoying = this.getAttribute("data-task-annoying") === "True";
+                const taskCompleted = this.getAttribute("data-task-completed") === "True";
+
+                // Fill in the modal fields
+                document.getElementById("editTaskId").value = taskId;
+                document.getElementById("editTaskTitle").value = taskTitle;
+                document.getElementById("editTaskDate").value = taskDate;
+                document.getElementById("editTaskImportance").value = taskImportance;
+                document.getElementById("editTaskTag").value = taskTag;
+                document.getElementById("editTaskAnnoying").checked = taskAnnoying;
+                document.getElementById("editTaskCompleted").checked = taskCompleted;
+
+                // Dynamically set the correct form action
+                document.getElementById("editForm").action = `/edit/${taskId}/`;
+
+                // Show the modal
+                var modal = new bootstrap.Modal(document.getElementById("editModal"));
+                modal.show();
+            });
+        });
+    });
+</script>
+    
+
+<!-- ✅ Ensure Bootstrap JavaScript is loaded properly -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+</body>
+</html>
+
+
+
